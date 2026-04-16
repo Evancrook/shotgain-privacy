@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Course Designer — ShotGain</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<style>
+  :root {
+    --bg: #0a0e17; --surface: #111827; --border: #1e293b;
+    --primary: #00D4AA; --text: #e2e8f0; --dim: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .toolbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .toolbar h1 { font-size: 16px; font-weight: 800; color: var(--primary); letter-spacing: 1px; }
+  .toolbar input, .toolbar select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; font-size: 14px; outline: none;
+  }
+  .toolbar input:focus { border-color: var(--primary); }
+  .toolbar button {
+    background: var(--primary); color: #000; border: none; border-radius: 8px;
+    padding: 6px 16px; font-weight: 700; cursor: pointer; font-size: 13px;
+  }
+  .toolbar button:hover { opacity: 0.9; }
+  .toolbar button.secondary { background: var(--border); color: var(--text); }
+  .toolbar .spacer { flex: 1; }
+  .type-btn {
+    padding: 4px 12px; border-radius: 16px; border: 2px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .type-btn.active { border-color: currentColor; }
+  .type-btn[data-type="fairway"] { color: #22c55e; }
+  .type-btn[data-type="bunker"] { color: #eab308; }
+  .type-btn[data-type="water"] { color: #3b82f6; }
+  .type-btn[data-type="ob-line"] { color: #ef4444; }
+  .type-btn[data-type="trees"] { color: #65a30d; }
+  #map { height: calc(100vh - 100px); width: 100%; }
+  .status { background: var(--surface); border-top: 1px solid var(--border); padding: 8px 16px; font-size: 12px; color: var(--dim); }
+  .course-list {
+    position: absolute; top: 52px; left: 16px; z-index: 1000; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow-y: auto;
+    display: none; min-width: 260px;
+  }
+  .course-list.visible { display: block; }
+  .course-item {
+    padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .course-item:hover { background: rgba(0,212,170,0.1); }
+  .course-item small { color: var(--dim); }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>COURSE DESIGNER</h1>
+  <input id="search" type="text" placeholder="Search course name…" style="width:200px" />
+  <select id="hole"><option value="">Hole #</option></select>
+  <div class="spacer"></div>
+  <button class="type-btn" data-type="fairway">Fairway</button>
+  <button class="type-btn" data-type="bunker">Bunker</button>
+  <button class="type-btn" data-type="water">Water</button>
+  <button class="type-btn" data-type="ob-line">OB Line</button>
+  <button class="type-btn" data-type="trees">Trees</button>
+  <div class="spacer"></div>
+  <button id="saveBtn" class="secondary">Save to Cloud</button>
+  <button id="clearBtn" class="secondary">Clear All</button>
+</div>
+
+<div id="map"></div>
+<div class="status" id="status">Search for a course to begin</div>
+<div class="course-list" id="courseList"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// Dev-only tool — credentials loaded from localStorage or prompted on first use.
+// Never hardcode keys in public files.
+const SUPABASE_URL = localStorage.getItem('sg_sb_url') || prompt('Supabase URL:') || '';
+const SUPABASE_KEY = localStorage.getItem('sg_sb_key') || prompt('Supabase Anon Key:') || '';
+if (SUPABASE_URL && SUPABASE_KEY) {
+  localStorage.setItem('sg_sb_url', SUPABASE_URL);
+  localStorage.setItem('sg_sb_key', SUPABASE_KEY);
+}
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const TYPE_COLORS = {
+  fairway: '#22c55e', bunker: '#eab308', water: '#3b82f6',
+  'ob-line': '#ef4444', trees: '#65a30d',
+};
+const TYPE_FILL = {
+  fairway: 'rgba(34,197,94,0.25)', bunker: 'rgba(234,179,8,0.25)',
+  water: 'rgba(59,130,246,0.3)', 'ob-line': 'rgba(239,68,68,0.1)',
+  trees: 'rgba(101,163,13,0.2)',
+};
+
+// Map setup
+const map = L.map('map', { zoomControl: true }).setView([35.23, -80.84], 16);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Esri Satellite', maxZoom: 20,
+}).addTo(map);
+
+// Draw layer
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+let activeType = 'fairway';
+let drawControl = null;
+let courseName = '';
+let courseLat = 0, courseLon = 0;
+
+// Hole selector
+const holeSel = document.getElementById('hole');
+for (let i = 1; i <= 18; i++) {
+  const opt = document.createElement('option');
+  opt.value = i; opt.textContent = `Hole ${i}`;
+  holeSel.appendChild(opt);
+}
+holeSel.value = '1';
+
+// Type buttons
+document.querySelectorAll('.type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeType = btn.dataset.type;
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateDrawControl();
+  });
+});
+document.querySelector('[data-type="fairway"]').classList.add('active');
+
+function updateDrawControl() {
+  if (drawControl) map.removeControl(drawControl);
+  const isLine = activeType === 'ob-line';
+  const color = TYPE_COLORS[activeType];
+  drawControl = new L.Control.Draw({
+    draw: {
+      polygon: isLine ? false : { shapeOptions: { color, fillColor: TYPE_FILL[activeType], fillOpacity: 0.3 } },
+      polyline: isLine ? { shapeOptions: { color, weight: 3 } } : false,
+      rectangle: false, circle: false, marker: false, circlemarker: false,
+    },
+    edit: { featureGroup: drawnItems },
+  });
+  map.addControl(drawControl);
+}
+updateDrawControl();
+
+map.on(L.Draw.Event.CREATED, (e) => {
+  const layer = e.layer;
+  layer._terrainType = activeType;
+  const color = TYPE_COLORS[activeType];
+  if (layer.setStyle) layer.setStyle({ color, fillColor: TYPE_FILL[activeType], fillOpacity: 0.3 });
+  drawnItems.addLayer(layer);
+  updateStatus();
+});
+
+// Course search
+const searchInput = document.getElementById('search');
+const courseList = document.getElementById('courseList');
+let searchTimeout = null;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  const q = searchInput.value.trim();
+  if (q.length < 3) { courseList.classList.remove('visible'); return; }
+  searchTimeout = setTimeout(() => searchCourses(q), 500);
+});
+
+async function searchCourses(q) {
+  updateStatus('Searching courses…');
+  const query = `[out:json][timeout:10];
+(node["leisure"="golf_course"](if:t["name"]~"${q}");
+ way["leisure"="golf_course"](if:t["name"]~"${q}");
+ relation["leisure"="golf_course"](if:t["name"]~"${q}"););
+out tags center 20;`;
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
+    const data = await res.json();
+    const items = (data.elements || []).filter(e => e.tags?.name).map(e => ({
+      name: e.tags.name, lat: e.center?.lat ?? e.lat, lon: e.center?.lon ?? e.lon,
+    }));
+    courseList.innerHTML = '';
+    if (!items.length) { courseList.innerHTML = '<div class="course-item">No results</div>'; }
+    items.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'course-item';
+      div.innerHTML = `${c.name} <small>(${c.lat.toFixed(3)}, ${c.lon.toFixed(3)})</small>`;
+      div.addEventListener('click', () => selectCourse(c));
+      courseList.appendChild(div);
+    });
+    courseList.classList.add('visible');
+    updateStatus(`Found ${items.length} course(s)`);
+  } catch {
+    updateStatus('Search failed — try again');
+  }
+}
+
+function selectCourse(c) {
+  courseName = c.name; courseLat = c.lat; courseLon = c.lon;
+  searchInput.value = c.name;
+  courseList.classList.remove('visible');
+  map.setView([c.lat, c.lon], 17);
+  updateStatus(`Selected: ${c.name} — draw terrain for hole ${holeSel.value}`);
+}
+
+// Save
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const hole = parseInt(holeSel.value);
+  if (!courseName || !hole) return alert('Select a course and hole number first.');
+  const layers = drawnItems.getLayers();
+  if (!layers.length) return alert('Draw at least one polygon first.');
+
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return alert('Sign in required to save. Use the mobile app to create an account.');
+
+  const polygons = layers.map(layer => {
+    const type = layer._terrainType || 'fairway';
+    const coords = (layer.getLatLngs ? layer.getLatLngs() : []).flat().map(ll => ({
+      latitude: ll.lat, longitude: ll.lng,
+    }));
+    return { type, coords };
+  }).filter(p => p.coords.length >= 2);
+
+  const courseKey = `${courseName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${courseLat.toFixed(4)}_${courseLon.toFixed(4)}`;
+  try {
+    updateStatus('Saving…');
+    const { error } = await sb.from('course_terrain_submissions').upsert({
+      user_id: user.id, course_key: courseKey, course_name: courseName,
+      hole_number: hole, tee_lat: courseLat, tee_lng: courseLon,
+      pin_lat: null, pin_lng: null, polygons,
+    }, { onConflict: 'user_id,course_key,hole_number' });
+    if (error) throw error;
+    updateStatus(`Saved ${polygons.length} polygon(s) for ${courseName} hole ${hole}`);
+    alert('Saved! This terrain will appear on the mobile app next time you play this hole.');
+  } catch (e) {
+    updateStatus('Save failed: ' + e.message);
+    alert('Save failed: ' + e.message);
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  drawnItems.clearLayers();
+  updateStatus('Cleared all drawings');
+});
+
+function updateStatus(msg) {
+  if (msg) document.getElementById('status').textContent = msg;
+  else {
+    const count = drawnItems.getLayers().length;
+    document.getElementById('status').textContent = count
+      ? `${count} shape(s) drawn — ${courseName || 'no course selected'}`
+      : 'Draw fairways, bunkers, water, and OB on the satellite map';
+  }
+}
+</script>
+</body>
+</html>
