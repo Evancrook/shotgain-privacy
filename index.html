@@ -68,7 +68,10 @@
     <li><strong>Apple Maps</strong> — for rendering course maps on iOS devices</li>
     <li><strong>RevenueCat</strong> — for subscription management and purchase restoration (only your user ID is shared; no golf data is sent)</li>
     <li><strong>Expo / EAS</strong> — for app delivery and over-the-air updates (no golf data is sent)</li>
+    <li><strong>Anthropic</strong> — for image-to-text processing on the Practice Import screen (see details below)</li>
   </ul>
+
+  <p><strong>Anthropic (image-to-text processing).</strong> When you use the "Pick a Photo or Screenshot" feature on the Practice Import screen, we send the image you upload to Anthropic's Claude API to extract shot data (carry, club, etc.). Anthropic processes the image and returns the parsed text. Per Anthropic's API terms, submissions are not used to train their models, and images are not retained after the response is returned. The image is not stored by us beyond the active import session.</p>
 
   <h2>Data Retention</h2>
   <p>Your data is retained for as long as you maintain an active account. You can delete your account and all associated data at any time by contacting us. Local data on your device can be cleared by uninstalling the App.</p>
