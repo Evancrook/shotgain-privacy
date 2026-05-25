@@ -27,7 +27,7 @@
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: April 15, 2026</p>
+  <p class="updated">Last updated: May 24, 2026</p>
 
   <p>This Privacy Policy describes how your information is collected, used, and shared when you use the ShotGain mobile application ("the App").</p>
 
@@ -55,7 +55,7 @@
 
   <h2>Data Sharing</h2>
   <p><strong>We do not sell, rent, or share your personal information with third parties.</strong></p>
-  <p>We do not serve advertisements. We do not use any third-party analytics, crash reporting, or advertising SDKs. We do not share your golf data with any external analytics or marketing services. Your performance data is yours alone.</p>
+  <p>We do not serve advertisements and we do not use any advertising SDKs or third-party analytics SDKs. We use a minimal crash and error reporting service (Sentry, described below) to monitor app stability — you can disable this at any time in the app via Profile → Settings → "Anonymous Crash Reporting." We do not share your golf data with any external analytics or marketing services. Your performance data is yours alone.</p>
   <p>Anonymized club dispersion data (carry distances and lateral spread, with no personally identifiable information) may be used in aggregate to provide cohort comparisons for all users.</p>
 
   <h2>Third-Party Services</h2>
@@ -67,6 +67,7 @@
     <li><strong>Google Maps SDK</strong> — for rendering course maps on Android devices</li>
     <li><strong>Apple Maps</strong> — for rendering course maps on iOS devices</li>
     <li><strong>RevenueCat</strong> — for subscription management and purchase restoration (only your user ID is shared; no golf data is sent)</li>
+    <li><strong>Sentry</strong> — for anonymous crash and error reporting to monitor app stability. Sentry receives the device platform, app version, error stack traces, and an anonymous installation identifier. When you are signed in, your ShotGain user ID and email are attached to error events so we can correlate reports across sessions. <strong>No shot data, location data, or content from your rounds is ever sent to Sentry.</strong> You can disable this at any time in the app via Profile → Settings → "Anonymous Crash Reporting." Sentry processes data in accordance with their privacy policy at <a href="https://sentry.io/privacy/">sentry.io/privacy</a> and provides the same level of protection as described in this document.</li>
     <li><strong>Expo / EAS</strong> — for app delivery and over-the-air updates (no golf data is sent)</li>
   </ul>
 
@@ -82,7 +83,8 @@
   <ul>
     <li>Access the personal data we hold about you</li>
     <li>Request correction of inaccurate data</li>
-    <li>Request deletion of your data</li>
+    <li>Request deletion of your data — available directly in the app via Profile → Delete Account, or by emailing us</li>
+    <li>Withdraw consent for anonymous crash reporting at any time via Profile → Settings → "Anonymous Crash Reporting"</li>
     <li>Export your data</li>
   </ul>
 
